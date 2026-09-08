@@ -1,0 +1,147 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/pipeline_healthcheck/**
+
+schedules:
+  - cron: "0 12-19 * * 1-5"
+    displayName: "Hourly VMSS health check (Mon-Fri, 8 AM to 3 PM Toronto time)"
+    branches:
+      include:
+        - main
+    always: true
+
+pool:
+  name: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool
+
+jobs:
+  - job: VmssAgentChecks
+    displayName: Software presence and networking checks
+    steps:
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          Write-Host "Agent name: $env:AGENT_NAME"
+          Write-Host "Agent OS: $env:AGENT_OS"
+          Get-Content /etc/os-release
+          pwsh --version
+        displayName: Check agent and PowerShell
+
+      - bash: |
+          set -euo pipefail
+
+          echo "Azure CLI"
+          az version
+
+          echo "Terraform"
+          terraform --version
+
+          echo "Git"
+          git --version
+
+          echo "jq"
+          jq --version
+
+          # echo "Checkov"
+          # checkov --version
+        displayName: Check infrastructure tools
+
+      - bash: |
+          set -euo pipefail
+
+          echo "Java"
+          java -version
+
+          echo ".NET SDKs"
+          dotnet --list-sdks
+          echo ".NET runtimes"
+          dotnet --list-runtimes
+
+          echo "Node.js"
+          node --version
+          echo "npm"
+          npm --version
+
+          echo "Azure Functions Core Tools"
+          func --version
+
+          echo "uv"
+          uv --version
+
+          for version in 3.9 3.10 3.11 3.12 3.13; do
+            python_path="$(uv python find "$version")"
+            echo "Python $version: $python_path"
+            "$python_path" --version
+          done
+        displayName: Check language and Functions toolchains
+
+      - bash: |
+          set -euo pipefail
+
+          docker --version
+          docker run --rm hello-world
+        displayName: Check Docker
+
+      - bash: |
+          set -euo pipefail
+
+          docker run --rm curlimages/curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --insecure \
+            --output /dev/null \
+            https://dev.azure.com/teamdman
+        displayName: Check Azure DevOps network access from Docker
+
+      - task: AzureCLI@2
+        displayName: Check authenticated Azure and state storage access
+        inputs:
+          azureSubscription: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-MI-SC
+          scriptType: pscore
+          scriptLocation: inlineScript
+          inlineScript: |
+            $ErrorActionPreference = "Stop"
+
+            az account show --query "{subscriptionId:id, subscriptionName:name, tenantId:tenantId}" --output json
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unable to query the authenticated Azure subscription."
+            }
+
+            Write-Host "Listing a blob from the Terraform state container."
+            az storage blob list `
+              --account-name teamyhubazdoagentpool1sa `
+              --container-name statefiles `
+              --auth-mode login `
+              --num-results 1 `
+              --only-show-errors `
+              --query "[].name" `
+              --output tsv `
+              --subscription "AAFC VSE Benefit"
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unable to list Terraform state blobs. Verify data-plane RBAC and the storage account network rules."
+            }
+
+      - bash: |
+          set -euo pipefail
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --output /dev/null \
+            https://dev.azure.com/teamdman
+        displayName: Check Azure DevOps network access with Bash
+
+      - pwsh: |
+          $ErrorActionPreference = "Stop"
+
+          $response = Invoke-WebRequest -Uri "https://dev.azure.com/teamdman" -Method Head -UseBasicParsing
+
+          Write-Host "Azure DevOps returned HTTP $($response.StatusCode)."
+        displayName: Check Azure DevOps network access with PowerShell

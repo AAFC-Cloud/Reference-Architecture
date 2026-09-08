@@ -1,0 +1,13 @@
+name      = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool-Healthcheck"
+yaml_path = "./azure-pipelines.yml"
+
+authorizations = [
+  {
+    type = "queue"
+    name = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool"
+  },
+  {
+    type = "endpoint"
+    name = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-MI-SC"
+  },
+]

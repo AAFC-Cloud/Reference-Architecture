@@ -1,0 +1,3 @@
+If you experience powershell becoming less responsive, showing `PS>` instead of your starship prompt, it may be due to max path length problems.
+
+For example, `AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/core/identity_devops_project_agent_pool_permissions` may cause issues if you clone the repo to a path that is already long.

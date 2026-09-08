@@ -1,0 +1,1 @@
+az devops invoke --area distributedtask --resource elasticpoollogs --route-parameters poolId="123-todo" --api-version 7.1 | code -
