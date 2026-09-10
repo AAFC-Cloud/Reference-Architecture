@@ -1,0 +1,17 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - AzureDevOps/Projects/MyCoreProject/service_connections/bootstrap/azure_rbac/**
+    exclude:
+      - AzureDevOps/Projects/MyCoreProject/service_connections/bootstrap/azure_rbac/**/*.md
+
+extends:
+  template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+  parameters:
+    pathInRepo: AzureDevOps/Projects/MyCoreProject/service_connections/bootstrap/azure_rbac
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
+    environmentName: MyCoreProject-Core-Environment
+    agentPoolName: MyAgentPool-01

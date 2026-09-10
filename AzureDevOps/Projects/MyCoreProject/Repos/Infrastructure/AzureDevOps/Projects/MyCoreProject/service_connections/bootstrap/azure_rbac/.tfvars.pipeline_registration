@@ -1,0 +1,17 @@
+name      = "MyCoreProject - Bootstrap - Azure RBAC"
+yaml_path = "./azure-pipelines.yml"
+
+authorizations = [
+  {
+    type = "queue"
+    name = "MyAgentPool-01"
+  },
+  {
+    type = "endpoint"
+    name = "MyCoreProject-Bootstrap-ServiceConnection"
+  },
+  {
+    type = "environment"
+    name = "MyCoreProject-Core-Environment"
+  },
+]

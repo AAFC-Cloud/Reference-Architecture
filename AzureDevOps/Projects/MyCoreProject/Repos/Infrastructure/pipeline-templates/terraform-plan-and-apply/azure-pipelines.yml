@@ -1,0 +1,243 @@
+parameters:
+  - name: pathInRepo
+    type: string
+
+  - name: serviceConnectionName
+    type: string
+
+  - name: environmentName
+    type: string
+
+  - name: terraformParallelism
+    type: number
+    default: 10
+
+  - name: agentPoolName
+    type: string
+
+stages:
+  - stage: Plan
+    displayName: Terraform Plan
+    pool:
+      name: ${{ parameters.agentPoolName }}
+
+    jobs:
+      - job: TerraformPlan
+        displayName: Terraform Plan Workflow
+
+        steps:
+          - checkout: self
+
+          - task: Bash@3
+            displayName: Install Terraform
+            inputs:
+              targetType: filePath
+              filePath: pipeline-templates/terraform-plan-and-apply/install_terraform.sh
+
+          - bash: |
+              echo "SYSTEM_DEBUG=${SYSTEM_DEBUG:-<unset>}"
+              echo "AGENT_DIAGNOSTIC=${AGENT_DIAGNOSTIC:-<unset>}"
+
+              system_debug="${SYSTEM_DEBUG:-false}"
+              agent_diagnostic="${AGENT_DIAGNOSTIC:-false}"
+
+              if [[ "${system_debug,,}" == "true" || "${agent_diagnostic,,}" == "true" ]]; then
+                echo "##vso[task.setvariable variable=TerraformLogLevel]DEBUG"
+                echo "Azure Pipelines diagnostics enabled; Terraform TF_LOG=DEBUG."
+              else
+                echo "##vso[task.setvariable variable=TerraformLogLevel]"
+                echo "Terraform diagnostic logging disabled."
+              fi
+            displayName: Configure Terraform Diagnostics
+
+          - task: AzureCLI@2
+            displayName: Terraform Init
+            env:
+              TF_VAR_is_ci: true
+              TF_LOG: $(TerraformLogLevel)
+              ARM_USE_OIDC: true
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+            inputs:
+              azureSubscription: ${{ parameters.serviceConnectionName }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              workingDirectory: $(Build.SourcesDirectory)/${{ parameters.pathInRepo }}
+              failOnStandardError: false
+              inlineScript: |
+                echo "TF_LOG=${TF_LOG:-<unset>}"
+                terraform --version
+                terraform init -input=false
+
+          - task: AzureCLI@2
+            displayName: Terraform Validate
+            env:
+              TF_VAR_is_ci: true
+              TF_LOG: $(TerraformLogLevel)
+              ARM_USE_OIDC: true
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+            inputs:
+              azureSubscription: ${{ parameters.serviceConnectionName }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              workingDirectory: $(Build.SourcesDirectory)/${{ parameters.pathInRepo }}
+              failOnStandardError: false
+              inlineScript: |
+                echo "TF_LOG=${TF_LOG:-<unset>}"
+                terraform validate
+
+          - task: AzureCLI@2
+            name: TerraformPlanTask
+            displayName: Terraform Plan
+            env:
+              TF_VAR_is_ci: true
+              TF_LOG: $(TerraformLogLevel)
+              ARM_USE_OIDC: true
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+            inputs:
+              azureSubscription: ${{ parameters.serviceConnectionName }}
+              scriptType: bash
+              scriptLocation: inlineScript
+              workingDirectory: $(Build.SourcesDirectory)/${{ parameters.pathInRepo }}
+              failOnStandardError: false
+              inlineScript: |
+                echo "TF_LOG=${TF_LOG:-<unset>}"
+
+                echo ""
+                echo "Creating artifact directory..."
+                mkdir -p "$(Build.ArtifactStagingDirectory)/terraform-plan"
+
+                echo ""
+                echo "Running terraform plan..."
+                terraform plan \
+                  -input=false \
+                  -parallelism=${{ parameters.terraformParallelism }} \
+                  -detailed-exitcode \
+                  -out="$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan"
+
+                plan_exit_code=$?
+
+                case "$plan_exit_code" in
+                  0)
+                    echo ""
+                    echo "##[section]Terraform plan summary"
+                    echo "Terraform plan detected no changes."
+                    echo "##vso[task.setvariable variable=TerraformHasChanges]false"
+                    echo "##vso[task.setvariable variable=TerraformHasChanges;isOutput=true]false"
+                    exit 0
+                    ;;
+
+                  2)
+                    echo ""
+                    echo "Writing the human-readable plan file..."
+                    terraform show \
+                      -no-color \
+                      "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan" \
+                      > "$(Build.ArtifactStagingDirectory)/terraform-plan/tfplan.txt"
+
+                    echo ""
+                    echo "##[section]Terraform plan summary"
+                    echo "Terraform plan detected changes."
+                    echo "##vso[task.setvariable variable=TerraformHasChanges]true"
+                    echo "##vso[task.setvariable variable=TerraformHasChanges;isOutput=true]true"
+                    exit 0
+                    ;;
+
+                  *)
+                    echo "##vso[task.logissue type=error]terraform plan failed with exit code $plan_exit_code"
+                    exit "$plan_exit_code"
+                    ;;
+                esac
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish Terraform Plan Artifact
+            condition: and(succeeded(), eq(variables['TerraformHasChanges'], 'true'))
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)/terraform-plan
+              artifact: terraform-plan
+              publishLocation: pipeline
+
+  - stage: Apply
+    displayName: Terraform Apply
+    pool:
+      name: ${{ parameters.agentPoolName }}
+    dependsOn: Plan
+    condition: and(succeeded(), eq(dependencies.Plan.outputs['TerraformPlan.TerraformPlanTask.TerraformHasChanges'], 'true'))
+
+    jobs:
+      - deployment: TerraformApply
+        displayName: Apply Approved Terraform Plan
+        environment: ${{ parameters.environmentName }}
+
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - task: Bash@3
+                  displayName: Install Terraform
+                  inputs:
+                    targetType: filePath
+                    filePath: pipeline-templates/terraform-plan-and-apply/install_terraform.sh
+
+                - bash: |
+                    echo "SYSTEM_DEBUG=${SYSTEM_DEBUG:-<unset>}"
+                    echo "AGENT_DIAGNOSTIC=${AGENT_DIAGNOSTIC:-<unset>}"
+
+                    system_debug="${SYSTEM_DEBUG:-false}"
+                    agent_diagnostic="${AGENT_DIAGNOSTIC:-false}"
+
+                    if [[ "${system_debug,,}" == "true" || "${agent_diagnostic,,}" == "true" ]]; then
+                      echo "##vso[task.setvariable variable=TerraformLogLevel]DEBUG"
+                      echo "Azure Pipelines diagnostics enabled; Terraform TF_LOG=DEBUG."
+                    else
+                      echo "##vso[task.setvariable variable=TerraformLogLevel]"
+                      echo "Terraform diagnostic logging disabled."
+                    fi
+                  displayName: Configure Terraform Diagnostics
+
+                - download: current
+                  artifact: terraform-plan
+
+                - task: AzureCLI@2
+                  displayName: Terraform Init
+                  env:
+                    TF_VAR_is_ci: true
+                    TF_LOG: $(TerraformLogLevel)
+                    ARM_USE_OIDC: true
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                    SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnectionName }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    workingDirectory: $(Build.SourcesDirectory)/${{ parameters.pathInRepo }}
+                    failOnStandardError: false
+                    inlineScript: |
+                      echo "TF_LOG=${TF_LOG:-<unset>}"
+                      terraform init -input=false
+
+                - task: AzureCLI@2
+                  displayName: Terraform Apply Saved Plan
+                  env:
+                    TF_VAR_is_ci: true
+                    TF_LOG: $(TerraformLogLevel)
+                    ARM_USE_OIDC: true
+                    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+                    SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
+                  inputs:
+                    azureSubscription: ${{ parameters.serviceConnectionName }}
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    workingDirectory: $(Build.SourcesDirectory)/${{ parameters.pathInRepo }}
+                    failOnStandardError: false
+                    inlineScript: |
+                      echo "TF_LOG=${TF_LOG:-<unset>}"
+
+                      terraform apply \
+                        -input=false \
+                        -parallelism=${{ parameters.terraformParallelism }} \
+                        "$(Pipeline.Workspace)/terraform-plan/tfplan"

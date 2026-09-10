@@ -1,0 +1,19 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - AzureDevOps/Projects/MyCoreProject/environments/Main/**
+      - pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+      - pipeline-templates/terraform-plan-and-apply/install_terraform.sh
+    exclude:
+      - AzureDevOps/Projects/MyCoreProject/environments/Main/**/*.md
+
+extends:
+  template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+  parameters:
+    pathInRepo: AzureDevOps/Projects/MyCoreProject/environments/Main
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
+    environmentName: MyCoreProject-Core-Environment
+    agentPoolName: MyAgentPool-01

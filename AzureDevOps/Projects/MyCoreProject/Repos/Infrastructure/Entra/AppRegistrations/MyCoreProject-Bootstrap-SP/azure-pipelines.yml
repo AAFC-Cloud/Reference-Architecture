@@ -1,0 +1,17 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - Entra/AppRegistrations/MyCoreProject-Bootstrap-SP/**
+    exclude:
+      - Entra/AppRegistrations/MyCoreProject-Bootstrap-SP/**/*.md
+
+extends:
+  template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+  parameters:
+    pathInRepo: Entra/AppRegistrations/MyCoreProject-Bootstrap-SP
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
+    environmentName: MyCoreProject-Core-Environment
+    agentPoolName: MyAgentPool-01

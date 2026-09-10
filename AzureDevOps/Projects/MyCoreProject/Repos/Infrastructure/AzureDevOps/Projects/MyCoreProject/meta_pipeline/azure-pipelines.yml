@@ -1,0 +1,21 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - AzureDevOps/Projects/MyCoreProject/meta_pipeline/**
+      - pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+      - pipeline-templates/terraform-plan-and-apply/install_terraform.sh
+      - "**/*.tfvars.pipeline_registration"
+    exclude:
+      - AzureDevOps/Projects/MyCoreProject/meta_pipeline/**/*.md
+
+extends:
+  template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+  parameters:
+    pathInRepo: AzureDevOps/Projects/MyCoreProject/meta_pipeline
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
+    environmentName: MyCoreProject-Core-Environment
+    agentPoolName: MyAgentPool-01
+    terraformParallelism: 50
