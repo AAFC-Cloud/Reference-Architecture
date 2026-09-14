@@ -141,7 +141,15 @@ jobs:
       - pwsh: |
           $ErrorActionPreference = "Stop"
 
-          $response = Invoke-WebRequest -Uri "https://dev.azure.com/teamdman" -Method Head -UseBasicParsing
+          # This anonymous request checks connectivity; authentication can be required.
+          $response = Invoke-WebRequest -Uri "https://dev.azure.com/teamdman" -Method Head -SkipHttpErrorCheck -TimeoutSec 30
+          $statusCode = [int]$response.StatusCode
 
-          Write-Host "Azure DevOps returned HTTP $($response.StatusCode)."
+          if ($statusCode -in 401, 403) {
+            Write-Host "Azure DevOps is reachable (HTTP $statusCode; authentication required). This check does not validate permissions."
+          } elseif ($statusCode -ge 200 -and $statusCode -lt 300) {
+            Write-Host "Azure DevOps is reachable (HTTP $statusCode)."
+          } else {
+            throw "Azure DevOps connectivity check returned unexpected HTTP $statusCode."
+          }
         displayName: Check Azure DevOps network access with PowerShell
