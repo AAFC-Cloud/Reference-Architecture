@@ -14,14 +14,16 @@ trigger:
       - main
   paths:
     include:
-      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_scale_set/**
+      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_image/**
+      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
-      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_scale_set/**/*.md
+      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_image/**/*.md
+      - pipeline-templates/terraform-plan-and-apply/**/*.md
 
 extends:
   template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
   parameters:
-    pathInRepo: AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_scale_set
+    pathInRepo: AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_image
     serviceConnectionName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-MI-SC
     environmentName: MyCoreProject-Core-Environment
     agentPoolName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool

@@ -1,0 +1,17 @@
+name      = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG - Core - identity azurerm role assignments"
+yaml_path = "./azure-pipelines.yml"
+
+authorizations = [
+  {
+    type = "queue"
+    name = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool"
+  },
+  {
+    type = "endpoint"
+    name = "MyCoreProject-Bootstrap-ServiceConnection"
+  },
+  {
+    type = "environment"
+    name = "MyCoreProject-Core-Environment"
+  },
+]

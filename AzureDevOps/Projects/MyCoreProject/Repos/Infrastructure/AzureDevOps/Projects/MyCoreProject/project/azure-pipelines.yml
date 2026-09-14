@@ -14,15 +14,17 @@ trigger:
       - main
   paths:
     include:
-      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_scale_set/**
+      - AzureDevOps/Projects/MyCoreProject/project/**
+      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
-      - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_scale_set/**/*.md
+      - AzureDevOps/Projects/MyCoreProject/project/**/*.md
+      - pipeline-templates/terraform-plan-and-apply/**/*.md
 
 extends:
   template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
   parameters:
-    pathInRepo: AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/workload/vm_scale_set
-    serviceConnectionName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-MI-SC
+    pathInRepo: AzureDevOps/Projects/MyCoreProject/project
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
     environmentName: MyCoreProject-Core-Environment
     agentPoolName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool
     destroyPlan: ${{ parameters.destroyPlan }}
