@@ -1,0 +1,10 @@
+Generated using the built-in image_gen tool.
+
+Use case: logo-brand.
+Asset type: original logo mark for the bilingual GitHub README of "Azure DevOps Reference Architecture".
+Primary request: design a polished, memorable symbol for a distributed infrastructure system made understandable as one architecture.
+Subject: three equal interlocking architectural frames forming a compact open hexagonal structure. Their deliberate connections suggest separate repositories and workloads cooperating, with balanced negative space and no dominant central hub.
+Style: minimal, precise geometric graphic design, crisp vector-like edges, strong silhouette, flat azure-blue tones with a restrained teal accent. Make the geometry feel thoughtfully designed rather than a generic network diagram.
+Composition: a single centered logo on a square 1024 by 1024 canvas, comfortably filling the frame with about 12 percent clear padding. Bold enough to read at 48 pixels and clean at the README's 230-pixel display size.
+Background: genuinely transparent alpha, including all gaps inside the symbol; no white rectangle or rendered checkerboard.
+Constraints: symbol only, no words or letters, no slogan, no existing vendor logos, no surrounding presentation sheet, no mockup, no 3D rendering, no glow, no shadows, no decorative micro-details, no watermark.
