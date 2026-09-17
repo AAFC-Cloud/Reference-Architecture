@@ -5,5 +5,5 @@ resource "azuredevops_group_membership" "admins" {
     user.descriptor
     if user.is_project_admin
   ]
-  mode = "overwrite"
+  mode = "add"
 }

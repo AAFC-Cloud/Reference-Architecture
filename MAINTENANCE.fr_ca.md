@@ -21,6 +21,58 @@ Pour ce déploiement de référence, effectuez les modifications dans la copie d
 
 Le [méta-pipeline][meta] découvre les fichiers `.tfvars.pipeline_registration` et crée les définitions de pipelines ainsi que leurs autorisations d’accès aux ressources. Le [modèle Terraform partagé][template] initialise, valide et planifie chaque module racine Terraform. Lorsqu’il détecte des modifications, il publie le plan enregistré et applique ce même plan dans l’environnement configuré. Un plan sans modification saute l’étape d’application. Les exigences d’approbation proviennent des vérifications de l’environnement.
 
+## Intégrer MyFirstWorkload par les pipelines
+
+Les modules d’intégration résident dans MyCoreProject/Infrastructure et utilisent la connexion d’amorçage. Ils suivent les structures existantes du projet, d’Entra et des connexions de service. La connexion est regroupée sous `AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/`, avec des modules Terraform distincts pour la licence, les autorisations du projet, Azure RBAC et la fédération.
+
+| Module racine | Responsabilité | Modules préalables |
+| --- | --- | --- |
+| [project](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/project/>) | Projet Azure DevOps et membres humains. | Amorçage Core existant. |
+| [MyFirstWorkload-SP](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/Entra/AppRegistrations/MyFirstWorkload-SP/>) | Inscription d’application Entra, propriétaires et principal de service. | Amorçage Core existant. |
+| [devops_license](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_license/>) | Intégration du principal de service à Azure DevOps. | Identité Entra. |
+| [devops_project_permissions](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_project_permissions/>) | Appartenance du principal à Project Administrators et Endpoint Administrators. | Projet et licence Azure DevOps. |
+| [service_connection](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/service_connection/>) | Connexion de service fédérée et identifiant fédéré de l’application. | Projet et identité Entra. |
+| [azure_rbac](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/azure_rbac/>) | Contributor sur le groupe de ressources. | Identité Entra et groupe de ressources. |
+| [resource_group](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Workload-MyFirstWorkload-DEV-RG/core/resource_group/>) | Teamy-Workload-MyFirstWorkload-DEV-RG. | Amorçage Core existant. |
+| [state_file_storage_account](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Workload-MyFirstWorkload-DEV-RG/core/state_file_storage_account/>) | Compte dédié, règles réseau héritées, conteneur privé statefiles et rôles de données des identités d’amorçage et de charge de travail. | Groupe de ressources et identité Entra de la charge de travail; identité, compte et règles réseau d’amorçage existants. |
+| [resource_provider_registrations](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations/>) | Inscription de Microsoft.AppConfiguration au niveau de l’abonnement. | Amorçage Core existant. |
+
+L’[environnement d’approbation](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/environments/Main/), le [méta-pipeline](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/) et le module [workload/app_configuration](<./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Workload-MyFirstWorkload-DEV-RG/workload/app_configuration/>) résident dans MyFirstWorkload/Infrastructure. Ils utilisent MyFirstWorkload-ServiceConnection et des clés d’état distinctes dans le conteneur de la charge de travail. La charge de travail gère sa liste d’approbateurs et son inventaire de pipelines.
+
+Cette intégration suppose que le méta-pipeline Core et les agents auto-hébergés fonctionnent déjà, y compris leur accès à l’état d’amorçage. La publication se fait en deux étapes puisque le projet de la charge de travail n’existe pas initialement :
+
+1. Examinez les modifications, puis publiez avec les commandes ci-dessous. Le réplicateur met à jour MyCoreProject et reporte automatiquement la publication de MyFirstWorkload jusqu’à la création du projet, qu’il signale dans `deferred_projects`. Aucune ressource de la charge de travail n’est créée localement.
+2. Laissez le méta-pipeline Core traiter les inscriptions, ou déclenchez-le. Approuvez son plan pour inscrire les neuf pipelines d’intégration.
+3. Exécutez les modules dans l’ordre des prérequis ci-dessus. La création du projet, `MyFirstWorkload-SP`, le groupe de ressources et l’inscription du fournisseur peuvent s’exécuter indépendamment. Exécutez la licence après l’identité, puis les autorisations du projet après la licence et la création du projet. Exécutez Azure RBAC et le stockage d’état après la création de l’identité et du groupe de ressources. Le module de stockage copie les règles réseau d’amorçage et accorde aux deux identités de déploiement l’accès au nouveau conteneur. Créez la connexion de service après le projet et l’identité. Approuvez chaque plan et terminez tous ces modules avant de déployer la charge de travail.
+4. Planifiez et publiez de nouveau. Le réplicateur découvre maintenant MyFirstWorkload et peut créer MyFirstWorkload/Infrastructure et publier ses sources.
+5. Amorcez localement l’environnement depuis `AzureDevOps/Projects/MyFirstWorkload/environments/Main`, puis le méta-pipeline, selon les [instructions initiales](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/README.md#first-run). Celui-ci inscrit `pipeline definitions`, `MyFirstWorkload-DEV` et `Teamy-Workload-MyFirstWorkload-DEV-RG - workload - app_configuration` avec leurs autorisations.
+6. Déclenchez `pipeline definitions` dans MyFirstWorkload, puis le pipeline App Configuration. Examinez et approuvez le plan enregistré dans MyFirstWorkload-DEV. Les commits suivants déclenchent le pipeline approprié.
+
+Première publication, depuis la copie de travail principale :
+
+```powershell
+terraform -chdir=git-replicator init
+terraform -chdir=git-replicator plan -out=bootstrap-publication.tfplan
+terraform -chdir=git-replicator apply bootstrap-publication.tfplan
+```
+
+Deuxième publication, après la réussite des pipelines du projet, de l’identité, de la connexion de service et des fondations Azure :
+
+```powershell
+terraform -chdir=git-replicator plan -out=workload-publication.tfplan
+terraform -chdir=git-replicator apply workload-publication.tfplan
+```
+
+Les commandes ci-dessus exécutent le mécanisme de publication. L’environnement et le méta-pipeline de la charge de travail nécessitent aussi les premières applications locales de l’étape 5; les exécutions Terraform suivantes passent par Azure DevOps. Toute sélection explicite doit conserver chaque projet déjà géré par l’état du réplicateur. La protection contre la suppression rejette une sélection qui retire un dépôt géré; la sélection par défaut comprend tous les projets découverts.
+
+La charge de travail utilise `teamymyfirstworkloadsa/statefiles` dans `Teamy-Workload-MyFirstWorkload-DEV-RG`. Son principal de service possède un rôle de données blob sur ce conteneur privé, Contributor sur son groupe de ressources et l’appartenance à Project Administrators et Endpoint Administrators dans MyFirstWorkload. Le module de stockage accorde aussi au principal d’amorçage l’accès aux données du conteneur. L’opérateur qui amorce localement la charge de travail doit également avoir accès aux données de ce nouveau conteneur.
+
+Les modules Core conservent leur état sur `terraformproddwvc87/statefiles`. Les modules de connexion de service et de stockage consomment les sorties Entra depuis cet état. Le module de stockage copie les règles réseau du compte préalable au déploiement, en excluant `ipv6Rules`, comme le stockage du pool d’agents. Gardez les règles résolues et les plans privés. Après une modification des règles préalables, réexécutez le pipeline de stockage pour actualiser la copie. Les modules d’environnement, de méta-pipeline et d’App Configuration utilisent le nouveau compte sans lire l’état de Core ni les propriétés du compte d’amorçage.
+
+Le paramètre `auto_provision = true` du pool élastique existant fournit une file dans le nouveau projet. Si sa recherche échoue pendant l’inscription, confirmez que son provisionnement est terminé avant de réessayer. La propagation des rôles Azure peut aussi exiger une nouvelle tentative du premier déploiement de la charge de travail.
+
+La première exécution de la charge de travail n’est pas déclenchée pendant la création de sa définition, pour laisser les autorisations se terminer. Son dépôt contient une copie du modèle Terraform et de l’installateur; examinez les mises à jour des copies des deux projets lors de la maintenance de cette référence. Le méta-pipeline de chaque projet découvre seulement les inscriptions de son propre dépôt Infrastructure. Ajoutez les futures inscriptions de pipelines de la charge de travail dans son dépôt.
+
 ## Organisation du dépôt
 
 Les dossiers `AzureDevOps/Projects/<project>/Repos/<repository>/` représentent des dépôts qui résident dans des projets Azure DevOps distincts. Leur imbrication ici rend l’ensemble de la référence visible dans une seule copie de travail; chaque dépôt de destination possède sa propre racine et ses propres contrôles d’accès.

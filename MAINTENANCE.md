@@ -115,6 +115,58 @@ When adding a Terraform pipeline:
 
 The shared template also accepts `destroyPlan` and `terraformTargets`; their defaults are `false` and `all`. Review the resulting plan and environment approval before applying.
 
+## Onboarding MyFirstWorkload through pipelines
+
+The onboarding roots live in MyCoreProject/Infrastructure and use the bootstrap connection. They follow the existing project, Entra and service-connection layouts. The connection is grouped under `AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/`, with licensing, project permissions, Azure RBAC and federation in separate Terraform roots.
+
+| Root | Responsibility | Prerequisite roots |
+| --- | --- | --- |
+| [project](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/project/>) | Azure DevOps project and human memberships. | Existing Core bootstrap. |
+| [MyFirstWorkload-SP](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/Entra/AppRegistrations/MyFirstWorkload-SP/>) | Entra application registration, owners and service principal. | Existing Core bootstrap. |
+| [devops_license](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_license/>) | Onboard the service principal into Azure DevOps. | Entra identity. |
+| [devops_project_permissions](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_project_permissions/>) | Service-principal membership in Project Administrators and Endpoint Administrators. | Project and Azure DevOps licensing. |
+| [service_connection](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/service_connection/>) | Federated service connection and application federated credential. | Project and Entra identity. |
+| [azure_rbac](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/azure_rbac/>) | Contributor on the workload resource group. | Entra identity and resource group. |
+| [resource_group](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Workload-MyFirstWorkload-DEV-RG/core/resource_group/>) | Teamy-Workload-MyFirstWorkload-DEV-RG. | Existing Core bootstrap. |
+| [state_file_storage_account](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Workload-MyFirstWorkload-DEV-RG/core/state_file_storage_account/>) | Dedicated account, inherited network ACLs, private statefiles container and bootstrap/workload data roles. | Workload resource group and Entra identity; existing bootstrap identity, storage account and network rules. |
+| [resource_provider_registrations](<./AzureDevOps/Projects/MyCoreProject/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations/>) | Subscription-level Microsoft.AppConfiguration registration. | Existing Core bootstrap. |
+
+The [approval environment](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/environments/Main/), [workload meta-pipeline](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/) and [workload/app_configuration](<./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Workload-MyFirstWorkload-DEV-RG/workload/app_configuration/>) live in MyFirstWorkload/Infrastructure. They use MyFirstWorkload-ServiceConnection and separate state keys in the workload container. The workload owns its approver list and pipeline inventory.
+
+This onboarding assumes the Core meta-pipeline and self-hosted agents already work, including agent access to bootstrap state. Publish in two stages because the workload project does not exist initially:
+
+1. Review the source changes, then publish using the commands below. The replicator updates MyCoreProject and automatically defers MyFirstWorkload until that project exists, reporting it in `deferred_projects`. This creates no workload resources locally.
+2. Let Core's meta-pipeline run on the registrations, or queue it. Approve its plan to register the nine onboarding pipelines.
+3. Run the roots in the prerequisite order above. Project creation, `MyFirstWorkload-SP`, the resource group and subscription provider registration can run independently. Run licensing after the identity, then project permissions after both licensing and project creation. Run Azure RBAC and state storage after the identity and resource group exist. The storage root copies the bootstrap network rules and grants both deployment identities access to the new container. Create the service connection after the project and identity. Approve each plan and complete all these roots before workload deployment.
+4. Plan and publish again. The replicator now discovers MyFirstWorkload and can create MyFirstWorkload/Infrastructure and publish its source.
+5. Bootstrap the workload environment locally from `AzureDevOps/Projects/MyFirstWorkload/environments/Main`, then its meta-pipeline, following the [first-run instructions](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/README.md#first-run). It registers `pipeline definitions`, `MyFirstWorkload-DEV` and `Teamy-Workload-MyFirstWorkload-DEV-RG - workload - app_configuration` with their authorizations.
+6. Queue `pipeline definitions` in MyFirstWorkload, then its App Configuration pipeline. Review and approve the saved plan in MyFirstWorkload-DEV. Further matching commits trigger the appropriate workload pipeline.
+
+First publication, from the outer checkout:
+
+```powershell
+terraform -chdir=git-replicator init
+terraform -chdir=git-replicator plan -out=bootstrap-publication.tfplan
+terraform -chdir=git-replicator apply bootstrap-publication.tfplan
+```
+
+Second publication, after the project, identity, service connection and Azure foundations pipelines succeed:
+
+```powershell
+terraform -chdir=git-replicator plan -out=workload-publication.tfplan
+terraform -chdir=git-replicator apply workload-publication.tfplan
+```
+
+The commands above operate the publisher. The workload environment and meta-pipeline also need the one-time local applies in step 5; subsequent Terraform runs use Azure DevOps. Keep every already-managed project in any explicit replicator selection. Repository deletion protection rejects a selection that drops a managed repository, and the default selection includes all discovered projects.
+
+The workload uses `teamymyfirstworkloadsa/statefiles` in `Teamy-Workload-MyFirstWorkload-DEV-RG`. Its service principal has a blob data role on that private container, Contributor on its resource group, and Project Administrators and Endpoint Administrators membership within MyFirstWorkload. The storage root grants the bootstrap principal container data access as well. A local operator bootstrapping the workload also needs data access to the new container.
+
+Core roots retain their state on `terraformproddwvc87/statefiles`. The service-connection and storage roots consume Entra outputs from bootstrap state. The storage root copies the prerequisite account's network ACLs at deployment time, excluding `ipv6Rules`, as the agent-pool storage root does. Keep resolved rules and plan artifacts private. After prerequisite network rules change, run the storage pipeline again to update the copy. The workload environment, meta-pipeline and App Configuration roots use the new account and do not read Core state or bootstrap account properties.
+
+The existing elastic pool's `auto_provision = true` supplies a queue in the new project. If the pipeline-registration lookup fails, confirm that queue provisioning has completed before retrying. Azure role propagation may similarly require retrying the initial workload run.
+
+The first workload run is not triggered while its definition is being created, so authorization can finish first. Its repository includes a copy of the Terraform template and installer; review updates to both projects' copies when maintaining this reference. Each project's meta-pipeline discovers only the registrations in its own Infrastructure repository. Add future workload pipeline registrations to the workload repository.
+
 ## Bringing the prerequisites into this repository
 
 This is proposed follow-up work, not implemented onboarding. Moving the shared network and bootstrap storage definitions here would make the reference more self-contained while preserving private ownership of the IP allowlist.

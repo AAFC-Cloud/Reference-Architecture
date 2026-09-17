@@ -1,0 +1,30 @@
+parameters:
+  - name: destroyPlan
+    displayName: Plan for Terraform destroy
+    type: boolean
+    default: false
+  - name: terraformTargets
+    displayName: Terraform target(s)
+    type: string
+    default: all
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - "AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_project_permissions/**"
+      - pipeline-templates/terraform-plan-and-apply/**
+    exclude:
+      - "AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_project_permissions/**/*.md"
+
+extends:
+  template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+  parameters:
+    pathInRepo: "AzureDevOps/Projects/MyFirstWorkload/service_connections/workload/devops_project_permissions"
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
+    environmentName: MyCoreProject-Core-Environment
+    agentPoolName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool
+    destroyPlan: ${{ parameters.destroyPlan }}
+    terraformTargets: ${{ parameters.terraformTargets }}

@@ -9,6 +9,8 @@ Cette architecture montre comment répartir le contrôle des charges de travail 
 
 L’exemple fonctionnel construit un pool d’agents Ubuntu utilisant un groupe de machines virtuelles identiques (VMSS) et l’infrastructure nécessaire : identités, stockage d’état, machine virtuelle source, Azure Compute Gallery, connexions de service et pipelines de déploiement.
 
+[`MyFirstWorkload`](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/README.fr_ca.md) ajoute un projet Azure DevOps indépendant qui utilise ces agents pour déployer Azure App Configuration. La plateforme établit ses fondations; l’équipe de la charge de travail possède le code Terraform de la ressource et son pipeline dans son propre dépôt.
+
 Ce dépôt GitHub rassemble ce système distribué en un seul endroit pour en expliquer les relations. En utilisation normale, les équipes soumettent leurs modifications directement dans leurs dépôts Azure DevOps. L’adoption de l’architecture n’exige ni une copie dérivée GitHub ni le réplicateur Git utilisé pour maintenir ce déploiement de référence.
 
 ## Les responsabilités suivent les projets et les dépôts
@@ -22,10 +24,13 @@ L’exemple sépare la mise en place des fondations de la livraison des charges 
 | Amorçage | Établir le projet, l’identité initiale, les connexions de service et les autorisations nécessaires à la délégation du déploiement. |
 | Core | Gérer le groupe de ressources du pool d’agents, l’identité managée, ses autorisations Azure et Azure DevOps et le stockage d’état des charges de travail. |
 | Workload | Construire l’image de machine virtuelle, publier les images de galerie, gérer le VMSS et le pool d’agents élastique et vérifier leur fonctionnement. |
+| MyFirstWorkload | Déployer App Configuration depuis un projet distinct avec sa propre identité, son conteneur d’état, son environnement d’approbation et son groupe de ressources `Teamy-Workload-MyFirstWorkload-DEV-RG`. |
 
-Les pipelines Core utilisent la connexion de service d’amorçage. Les pipelines Terraform des charges de travail utilisent une connexion de service distincte associée à une identité managée et à ses autorisations. L’identité et les pouvoirs derrière chaque déploiement sont ainsi explicites.
+Les pipelines Core utilisent la connexion de service d’amorçage. Les pipelines du pool d’agents utilisent une connexion de service associée à une identité managée; MyFirstWorkload utilise sa propre application Entra et une connexion de service fédérée. L’identité et les pouvoirs derrière chaque déploiement sont ainsi explicites.
 
 Chaque module racine Terraform possède sa propre clé d’état distant et son propre cycle de déploiement. Les dépendances entre modules racines doivent être en place avant l’exécution de leurs consommateurs; des inscriptions de pipelines distinctes n’imposent pas automatiquement un ordre d’exécution.
+
+Pour MyFirstWorkload, la plateforme délègue le rôle Contributor au niveau du groupe de ressources et l’accès aux données blob au niveau du conteneur d’état dédié. Une inscription d’application sous `Entra/AppRegistrations` fournit le principal de service utilisé par la connexion de service fédérée du projet. Core sépare la gestion des membres, la configuration de l’identité, l’attribution des autorisations et la création des ressources dans des modules racines Terraform déployés indépendamment. Le pool d’agents partagé fournit le chemin réseau requis, tandis que les autorisations de déploiement et l’accès à l’état conservent des portées explicites.
 
 ## Les modifications suivent un déploiement examiné
 
@@ -42,11 +47,15 @@ flowchart LR
 
 Le [modèle de pipeline partagé][template] initialise et valide Terraform, puis produit un plan enregistré. Lorsque le plan contient des modifications, l’étape Apply utilise ce même plan après les vérifications de l’environnement. Un plan sans modification saute l’étape Apply.
 
-Les définitions de pipelines et les autorisations d’accès aux ressources sont elles-mêmes gérées par le [méta-pipeline][meta]. Une inscription identifie le fichier YAML du pipeline ainsi que la file d’agents, la connexion de service et l’environnement qu’il peut utiliser. Le pipeline obtenu fonctionne dans les limites de ces autorisations.
+Chaque dépôt Infrastructure contient son propre code Terraform de méta-pipeline pour gérer les définitions et les autorisations de pipelines dans son projet. Une inscription identifie le fichier YAML du pipeline ainsi que la file d’agents, la connexion de service et l’environnement qu’il peut utiliser. Le pipeline obtenu fonctionne dans les limites de ces autorisations.
+
+Le [méta-pipeline Core][meta] inscrit les pipelines qui provisionnent les projets et les identités. Le [méta-pipeline MyFirstWorkload](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/) réside dans le dépôt Infrastructure de la charge de travail et découvre ses inscriptions. La charge de travail gère aussi son environnement d’approbation et sa liste d’approbateurs. Les premières applications locales établissent cet environnement, puis amorcent le méta-pipeline; les changements suivants sont déployés par les pipelines de ce projet.
 
 ## L’accès à l’état combine identité et accès réseau
 
 Terraform a besoin à la fois d’une autorisation d’accès à son état et d’un chemin réseau vers le conteneur d’état. L’exemple utilise un compte de stockage d’amorçage préalable pour l’état des fondations et crée un compte distinct pour l’état des charges de travail.
+
+MyFirstWorkload possède son propre compte de stockage d’état dans son groupe de ressources, avec un conteneur privé `statefiles`. Son identité peut accéder à ce conteneur sans recevoir l’accès aux états des autres projets. Le compte copie les restrictions réseau du compte préalable selon le même modèle que le stockage d’état du pool d’agents.
 
 La référence a été développée alors que le compte de stockage d’amorçage, ses restrictions réseau et le réseau virtuel partagé étaient déjà déployés. Le compte de stockage des charges de travail copie les règles réseau de ce compte préalable pendant l’exécution de Terraform. Cette approche conserve les adresses IP sensibles hors des sources publiques tout en réutilisant la politique d’accès établie.
 

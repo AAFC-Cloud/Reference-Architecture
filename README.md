@@ -9,6 +9,8 @@ This architecture shows how to distribute control of Azure workloads across Azur
 
 The working example builds an Ubuntu Virtual Machine Scale Set (VMSS) agent pool and the infrastructure it needs: identities, state storage, a source VM, Azure Compute Gallery, service connections, and deployment pipelines.
 
+[`MyFirstWorkload`](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/README.md) adds an independent Azure DevOps project that uses those agents to deploy Azure App Configuration. The platform establishes its foundations; the workload team owns the resource's Terraform and pipeline in its own repository.
+
 This GitHub repository collects that distributed system in one location so its relationships can be understood together. In normal use, teams commit directly to their Azure DevOps repositories. Adopting the architecture does not require a GitHub fork or the Git replicator used to maintain this reference deployment.
 
 ## Ownership follows projects and repositories
@@ -22,10 +24,13 @@ The example separates foundational setup from workload delivery:
 | Bootstrap | Establish the project, initial identity, service connections, and permissions needed to delegate deployment. |
 | Core | Manage the agent-pool resource group, managed identity, its Azure and Azure DevOps permissions, and workload state storage. |
 | Workload | Build the VM image, publish gallery images, manage the VMSS and elastic agent pool, and check their operation. |
+| MyFirstWorkload | Deploy App Configuration from a separate project using its own identity, state container, approval environment and `Teamy-Workload-MyFirstWorkload-DEV-RG` resource group. |
 
-Core pipelines use the bootstrap service connection. Workload Terraform pipelines use a separate managed identity service connection with assigned permissions. This makes the identity and authority behind each deployment explicit.
+Core pipelines use the bootstrap service connection. The agent-pool workload pipelines use a managed identity service connection; MyFirstWorkload uses its own Entra application and federated service connection. This makes the identity and authority behind each deployment explicit.
 
 Each Terraform root has its own backend state key and deployment lifecycle. Dependencies between roots must be established before their consumers run; separate pipeline registrations do not automatically impose an execution order.
+
+For MyFirstWorkload, the platform delegates Contributor at the workload resource group and blob data access at its dedicated state container. An application registration under `Entra/AppRegistrations` provides the service principal used by the project's federated service connection. Core separates project membership, identity configuration, permission grants and resource creation into independently deployed Terraform roots. Reusing the agent pool provides the required network path while deployment permissions and state access remain explicitly scoped.
 
 ## Changes follow a reviewed deployment path
 
@@ -42,11 +47,15 @@ flowchart LR
 
 The [shared pipeline template][template] initializes and validates Terraform, then produces a saved plan. When the plan contains changes, the Apply stage uses that same plan after the environment's checks. A plan without changes skips Apply.
 
-Pipeline definitions and resource authorizations are themselves managed by the [meta-pipeline][meta]. A registration identifies the pipeline YAML and the queue, service connection, and environment it may use. The resulting pipeline operates within those permissions.
+Each Infrastructure repository contains its own meta-pipeline Terraform to manage pipeline definitions and resource authorizations within its project. A registration identifies the pipeline YAML and the queue, service connection, and environment it may use. The resulting pipeline operates within those permissions.
+
+The [Core meta-pipeline][meta] registers the pipelines that provision projects and identities. The [MyFirstWorkload meta-pipeline](./AzureDevOps/Projects/MyFirstWorkload/Repos/Infrastructure/AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/) lives in the workload's Infrastructure repository and discovers that repository's registrations. The workload also owns its approval environment and approver list. One-time local applies establish that environment and then bootstrap the meta-pipeline; subsequent changes are deployed by that project's pipelines.
 
 ## State access combines identity and network access
 
 Terraform needs both permission to access its state and a network path to the state container. The example uses a prerequisite bootstrap storage account for foundational state and creates a separate storage account for workload state.
+
+MyFirstWorkload has its own state storage account in its workload resource group, with a private `statefiles` container. Its identity can access that container without receiving access to other projects' state. The account copies the prerequisite account's network restrictions using the same pattern as the agent-pool state account.
 
 The reference was developed with the bootstrap storage account, its network restrictions, and the shared virtual network already deployed. The workload storage account copies network rules from that prerequisite account during Terraform execution. This keeps sensitive IP allowlist values out of the public source while reusing the established access policy.
 

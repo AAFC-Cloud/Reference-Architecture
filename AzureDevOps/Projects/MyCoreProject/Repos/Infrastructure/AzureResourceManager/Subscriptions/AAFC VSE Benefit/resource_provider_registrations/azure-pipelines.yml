@@ -1,0 +1,30 @@
+parameters:
+  - name: destroyPlan
+    displayName: Plan for Terraform destroy
+    type: boolean
+    default: false
+  - name: terraformTargets
+    displayName: Terraform target(s)
+    type: string
+    default: all
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - "AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations/**"
+      - pipeline-templates/terraform-plan-and-apply/**
+    exclude:
+      - "AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations/**/*.md"
+
+extends:
+  template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
+  parameters:
+    pathInRepo: "AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations"
+    serviceConnectionName: MyCoreProject-Bootstrap-ServiceConnection
+    environmentName: MyCoreProject-Core-Environment
+    agentPoolName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool
+    destroyPlan: ${{ parameters.destroyPlan }}
+    terraformTargets: ${{ parameters.terraformTargets }}

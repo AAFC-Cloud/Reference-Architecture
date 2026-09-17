@@ -1,4 +1,4 @@
-$subscriptionId = "6cb7032f-2437-4f5e-91e8-676cb67e5444"
+$subscriptionId = "6cb7032f-2437-4f5e-91e8-676cb67e5444" # AAFC VSE Benefit
 $marketplaceImage = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'marketplace-image.json') -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
 if ([string]::IsNullOrWhiteSpace($marketplaceImage.plan)) {
     Write-Host 'This image does not require a Marketplace agreement.'

@@ -7,7 +7,7 @@ local Git clones, with one commit per changed repository.
 ```text
 AzureDevOps/Projects/<project>/Repos/<repository>/<file>
                          |                  |        |
-                  existing project     repository   path inside it
+                       project         repository   path inside it
 ```
 
 For example,
@@ -23,7 +23,12 @@ repository folders under each project's `Repos` directory. It uses
 `git ls-files --cached --others --exclude-standard` to select files, then
 Terraform reads their current working-tree contents. Only repositories with at
 least one eligible file are included; empty folders and folders containing only
-ignored files do not produce repositories or project lookups.
+ignored files do not produce repository entries.
+
+Terraform lists ready projects visible to its Azure DevOps identity and matches
+them to the source inventory. Projects not yet available are deferred with a
+warning and listed in the `deferred_projects` output. No repository, clone or file
+operations are scheduled for those projects. Available projects publish normally.
 
 - Project names and repository names come from the directory names.
 - Git-tracked files and untracked files permitted by Git's ignore rules are
@@ -41,10 +46,9 @@ ignored files do not produce repositories or project lookups.
 Each destination's main branch mirrors the selected source files. Applies repair
 drift and remove destination files absent from the source inventory, including
 remote-only files and the generated README when no source README exists.
-Removing a whole repository folder proposes
-deleting its managed repository; review plans accordingly. Removing the last
-eligible file from a previously managed repository also removes that repository
-from the desired inventory and proposes deleting it.
+Removing a whole repository folder or its last eligible file removes it from
+the desired inventory. Repository `prevent_destroy` protection rejects that plan;
+retiring a managed repository requires a separate, deliberate ownership change.
 
 The root GitHub `.gitignore` controls source selection. It is not copied into
 each Azure DevOps repository automatically; put a `.gitignore` inside a
@@ -81,9 +85,9 @@ Run from a complete Git checkout with PowerShell 7.2+ (`pwsh`), Git, and Terrafo
 checkout; by default it is the parent of this Terraform directory.
 
 The Azure DevOps organization is `https://dev.azure.com/teamdman/`.
-Every project with a discovered repository must already exist. `Workload1` is
-omitted while its repository folders have no eligible files. This root creates
-repositories, manages local copies of files, and looks up projects.
+This root discovers existing projects, creates their repositories and manages
+local copies of files. Project creation belongs to Core's provisioning pipelines;
+the replicator can publish those definitions before the new projects exist.
 
 Use an identity with permission to create/manage repositories and contribute to
 their `main` branches. Authenticate the Azure DevOps provider using your normal
@@ -104,7 +108,9 @@ terraform -chdir=git-replicator apply replication.tfplan
 
 Different repositories can synchronize in parallel; each has a single publishing
 operation. The `repositories` output lists remote URLs, local clone paths and
-managed file counts. Local file resources still appear in Terraform state, but
+managed file counts. The `deferred_projects` output lists selected projects that
+were unavailable; run the replicator again after they are provisioned or access
+is restored. Local file resources still appear in Terraform state, but
 their refreshes are local filesystem reads rather than individual Azure API calls.
 
 New repositories use `Clean` initialization on `refs/heads/main`. The provider
@@ -112,6 +118,38 @@ creates an initial commit. The first snapshot preserves that history and makes
 the branch's file tree match the source inventory.
 
 ## Existing repositories
+
+### Staged project onboarding
+
+Use the normal plan/apply workflow when source includes a new project. The first
+publication updates existing projects such as MyCoreProject and reports the new
+project in `deferred_projects`:
+
+```powershell
+terraform -chdir=git-replicator plan -out=bootstrap-publication.tfplan
+terraform -chdir=git-replicator apply bootstrap-publication.tfplan
+```
+
+Let Core's meta-pipeline register the project's provisioning pipeline, then run
+that pipeline. Once the project exists, create a fresh plan and apply it to
+publish the new project's repositories automatically:
+
+```powershell
+terraform -chdir=git-replicator plan -out=workload-publication.tfplan
+terraform -chdir=git-replicator apply workload-publication.tfplan
+```
+
+A project can also be deferred because it is still being provisioned or is not
+visible to the current identity. Check project access if a deferred project
+already exists. Authentication and API failures still stop the run.
+
+The optional `project_names` set limits the source inventory when an explicit
+selection is useful. Include every project already managed by this Terraform
+state. Excluding a managed repository, or losing visibility of its project, would
+plan its removal and is blocked by `prevent_destroy`. Misspelled or empty
+selections fail validation.
+
+### Importing repositories
 
 Import an existing destination repository before the first replication apply.
 For example, from the Reference-Architecture root in PowerShell 7:
@@ -172,7 +210,9 @@ Remove-Item Env:TF_DATA_DIR
 The test runner creates a temporary Git fixture inside `git-replicator/.terraform`,
 exercises the real discovery script, and runs a Terraform plan with a mocked
 Azure DevOps provider. Git synchronization tests use a temporary local bare remote.
-The checks cover repeated repository names across projects,
+The checks cover automatic deferral of unavailable projects, publication once
+projects become available, case-insensitive project matching, explicit selection,
+repeated repository names across projects,
 omission of empty and ignored-only repositories/projects, hidden files, Git
 ignore rules and exceptions, working-tree
 edits/deletions, Unicode and binary files, executable bits, one-commit snapshots,

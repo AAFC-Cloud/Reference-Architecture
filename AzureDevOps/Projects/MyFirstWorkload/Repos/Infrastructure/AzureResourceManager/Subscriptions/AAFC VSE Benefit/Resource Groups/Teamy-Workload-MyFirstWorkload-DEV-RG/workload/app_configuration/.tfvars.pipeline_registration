@@ -1,0 +1,8 @@
+name      = "Teamy-Workload-MyFirstWorkload-DEV-RG - workload - app_configuration"
+yaml_path = "./azure-pipelines.yml"
+
+authorizations = [
+  { type = "queue", name = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool" },
+  { type = "endpoint", name = "MyFirstWorkload-ServiceConnection" },
+  { type = "environment", name = "MyFirstWorkload-DEV" },
+]
