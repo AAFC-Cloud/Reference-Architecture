@@ -22,6 +22,11 @@ parameters:
     type: string
     default: all
 
+  - name: refreshState
+    displayName: Refresh Terraform state before planning
+    type: boolean
+    default: true
+
   - name: agentPoolName
     type: string
 
@@ -108,6 +113,7 @@ stages:
               SYSTEM_OIDCREQUESTURI: $(System.OidcRequestUri)
               TERRAFORM_DESTROY_PLAN: ${{ parameters.destroyPlan }}
               TERRAFORM_TARGETS: ${{ parameters.terraformTargets }}
+              REFRESH_STATE: ${{ parameters.refreshState }}
             inputs:
               azureSubscription: ${{ parameters.serviceConnectionName }}
               scriptType: bash
@@ -126,6 +132,11 @@ stages:
                   "-parallelism=${{ parameters.terraformParallelism }}"
                   "-detailed-exitcode"
                 )
+
+                if [[ "${REFRESH_STATE,,}" == "false" ]]; then
+                  plan_arguments+=("-refresh=false")
+                  echo "Terraform state refresh disabled for this plan."
+                fi
 
                 target_input="${TERRAFORM_TARGETS:-}"
                 if [[ "$target_input" =~ ^[[:space:]]*[aA][lL][lL][[:space:]]*$ ]]; then

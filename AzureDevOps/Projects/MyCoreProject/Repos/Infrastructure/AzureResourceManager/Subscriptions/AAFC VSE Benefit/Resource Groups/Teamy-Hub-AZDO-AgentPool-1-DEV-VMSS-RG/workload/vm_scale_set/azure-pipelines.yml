@@ -7,6 +7,10 @@ parameters:
     displayName: Terraform target(s) (optional; leave as all for full plan)
     type: string
     default: all
+  - name: refreshState
+    displayName: Refresh Terraform state before planning
+    type: boolean
+    default: true
 
 trigger:
   branches:
@@ -27,3 +31,4 @@ extends:
     agentPoolName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool
     destroyPlan: ${{ parameters.destroyPlan }}
     terraformTargets: ${{ parameters.terraformTargets }}
+    refreshState: ${{ parameters.refreshState }}

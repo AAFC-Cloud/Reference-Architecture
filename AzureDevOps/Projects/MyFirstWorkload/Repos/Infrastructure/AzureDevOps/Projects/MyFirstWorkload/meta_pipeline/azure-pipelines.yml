@@ -1,3 +1,21 @@
+parameters:
+  - name: refreshState
+    displayName: Refresh Terraform state before planning
+    type: boolean
+    default: true
+  - name: destroyPlan
+    displayName: Plan for Terraform destroy
+    type: boolean
+    default: false
+  - name: terraformTargets
+    displayName: Terraform target(s) (optional; leave as all for full plan)
+    type: string
+    default: all
+  - name: refreshState
+    displayName: Refresh Terraform state before planning
+    type: boolean
+    default: true
+
 trigger:
   branches:
     include:
@@ -18,4 +36,7 @@ extends:
     serviceConnectionName: MyFirstWorkload-ServiceConnection
     environmentName: MyFirstWorkload-DEV
     agentPoolName: Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool
+    destroyPlan: ${{ parameters.destroyPlan }}
+    terraformTargets: ${{ parameters.terraformTargets }}
+    refreshState: ${{ parameters.refreshState }}
     terraformParallelism: 50
