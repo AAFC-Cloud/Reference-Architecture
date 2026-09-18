@@ -19,10 +19,8 @@ trigger:
   paths:
     include:
       - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/core/identity/**
-      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
       - AzureResourceManager/Subscriptions/AAFC VSE Benefit/Resource Groups/Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-RG/core/identity/**/*.md
-      - pipeline-templates/terraform-plan-and-apply/**/*.md
 
 extends:
   template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml

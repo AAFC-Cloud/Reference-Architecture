@@ -19,7 +19,6 @@ trigger:
   paths:
     include:
       - "Entra/AppRegistrations/MyFirstWorkload-SP/**"
-      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
       - "Entra/AppRegistrations/MyFirstWorkload-SP/**/*.md"
 

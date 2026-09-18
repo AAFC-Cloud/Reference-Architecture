@@ -19,7 +19,6 @@ trigger:
   paths:
     include:
       - "AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations/**"
-      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
       - "AzureResourceManager/Subscriptions/AAFC VSE Benefit/resource_provider_registrations/**/*.md"
 

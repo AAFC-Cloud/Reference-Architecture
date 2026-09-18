@@ -19,10 +19,8 @@ trigger:
   paths:
     include:
       - AzureDevOps/Projects/MyCoreProject/project/**
-      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
       - AzureDevOps/Projects/MyCoreProject/project/**/*.md
-      - pipeline-templates/terraform-plan-and-apply/**/*.md
 
 extends:
   template: /pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml

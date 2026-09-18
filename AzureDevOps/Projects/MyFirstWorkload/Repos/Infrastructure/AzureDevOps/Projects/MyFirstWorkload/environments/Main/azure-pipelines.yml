@@ -19,7 +19,6 @@ trigger:
   paths:
     include:
       - "AzureDevOps/Projects/MyFirstWorkload/environments/Main/**"
-      - pipeline-templates/terraform-plan-and-apply/**
     exclude:
       - "AzureDevOps/Projects/MyFirstWorkload/environments/Main/**/*.md"
 

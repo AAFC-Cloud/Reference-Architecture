@@ -19,8 +19,6 @@ trigger:
   paths:
     include:
       - AzureDevOps/Projects/MyCoreProject/environments/Main - SkipApproval/**
-      - pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
-      - pipeline-templates/terraform-plan-and-apply/install_terraform.sh
     exclude:
       - AzureDevOps/Projects/MyCoreProject/environments/Main - SkipApproval/**/*.md
 

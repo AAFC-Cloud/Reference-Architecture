@@ -20,8 +20,6 @@ trigger:
   paths:
     include:
       - AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/**
-      - pipeline-templates/terraform-plan-and-apply/azure-pipelines.yml
-      - pipeline-templates/terraform-plan-and-apply/install_terraform.sh
       - "**/*.tfvars.pipeline_registration"
     exclude:
       - AzureDevOps/Projects/MyFirstWorkload/meta_pipeline/**/*.md
