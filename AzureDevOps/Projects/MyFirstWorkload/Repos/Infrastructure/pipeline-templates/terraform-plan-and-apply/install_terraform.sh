@@ -3,6 +3,13 @@ set -euo pipefail
 
 echo "install_terraform.sh begin"
 
+if command -v terraform >/dev/null 2>&1; then
+  echo "Terraform is already available; skipping installation."
+  terraform version
+  echo "install_terraform.sh end"
+  exit 0
+fi
+
 # Azure DevOps agents normally run as a non-root user. Use non-interactive
 # sudo for the system paths used below so the task cannot wait for a password
 # prompt or an interactive shell.
