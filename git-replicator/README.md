@@ -186,6 +186,15 @@ Each changed repository receives one commit named
 branch and path triggers apply, including for deletions. An unchanged snapshot
 does not create a commit or trigger CI through a push.
 
+Set the optional `commit_message` variable to customize that message for all
+repositories in an apply:
+
+```powershell
+terraform -chdir=git-replicator plan -var='commit_message=Synchronize reference architecture'
+```
+
+When omitted, the default message above is used.
+
 This copies the current working-tree snapshot; it does not replay GitHub commit
 history. Existing destination commit history is retained.
 

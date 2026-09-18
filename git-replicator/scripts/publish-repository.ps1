@@ -1,8 +1,11 @@
 param(
     [Parameter(Mandatory)][string] $ManifestPath,
-    [Parameter(Mandatory)][string] $SyncToken
+    [Parameter(Mandatory)][string] $SyncToken,
+    [Parameter()][string] $CommitMessage = 'Replicate source snapshot from Reference-Architecture'
 )
 . (Join-Path $PSScriptRoot 'git-common.ps1')
+
+if ([string]::IsNullOrWhiteSpace($CommitMessage)) { throw 'CommitMessage must contain at least one non-whitespace character.' }
 
 $manifestJson = Get-Content -LiteralPath $ManifestPath -Raw
 $manifest = $manifestJson | ConvertFrom-Json -AsHashtable
@@ -30,7 +33,7 @@ if ($indexCount -ne $manifest.files.Count) { throw 'Git did not stage every file
 Invoke-ReplicatorGit -Arguments @('-C', $clonePath, 'update-index', '-z', '--index-info') -InputText $indexInfo.ToString() | Out-Null
 $diff = Invoke-ReplicatorGit -Arguments @('-C', $clonePath, 'diff', '--cached', '--quiet') -AllowedExitCodes @(0, 1)
 if ($diff.ExitCode -eq 1) {
-    Invoke-ReplicatorGit @('-C', $clonePath, 'commit', '--quiet', '-m', 'Replicate source snapshot from Reference-Architecture') | Out-Null
+    Invoke-ReplicatorGit @('-C', $clonePath, 'commit', '--quiet', '-m', $CommitMessage) | Out-Null
     # A normal push rejects concurrent remote updates. Re-plan to retry on the new head.
     Invoke-ReplicatorGit -Arguments @('-C', $clonePath, 'push', '--porcelain', 'origin', 'HEAD:refs/heads/main') -RemoteUrl $manifest.remote_url | Out-Null
     Write-Host "$($manifest.repository_key) | Committed and pushed $($manifest.files.Count) source files in one snapshot"

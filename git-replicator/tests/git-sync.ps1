@@ -60,8 +60,10 @@ function Prepare-And-Write {
 }
 
 function Publish-Snapshot {
-    param([string] $Token)
-    & (Join-Path $replicatorRoot 'scripts/publish-repository.ps1') -ManifestPath $manifestPath -SyncToken $Token
+    param([string] $Token, [string] $CommitMessage)
+    $arguments = @('-ManifestPath', $manifestPath, '-SyncToken', $Token)
+    if ($null -ne $CommitMessage) { $arguments += @('-CommitMessage', $CommitMessage) }
+    & (Join-Path $replicatorRoot 'scripts/publish-repository.ps1') @arguments
 }
 
 function Get-CommitCount {
@@ -104,12 +106,13 @@ try {
     Write-Manifest
     $status = Read-SyncStatus
     Prepare-And-Write
-    Publish-Snapshot $status.sync_token
+    Publish-Snapshot $status.sync_token 'Custom snapshot message'
     Assert-Test ((Get-CommitCount) -eq 2) 'The first snapshot must add exactly one commit.'
     Assert-RemoteSnapshot
     $mode = (Invoke-ReplicatorGit @('--git-dir', $remote, 'ls-tree', 'main', 'tools/run.sh')).Output
     Assert-Test ($mode.StartsWith('100755 ')) 'Executable bits must be preserved.'
     $message = (Invoke-ReplicatorGit @('--git-dir', $remote, 'log', '-1', '--format=%s')).Output
+    Assert-Test ($message -eq 'Custom snapshot message') 'A custom commit message must be used when supplied.'
     Assert-Test (-not $message.Contains('[skip ci]')) 'Snapshot commits must allow normal CI triggers.'
     Write-Output 'PASS: one commit, exact mirror, binary bytes, Unicode paths, forced ignored files and executable bits'
 
