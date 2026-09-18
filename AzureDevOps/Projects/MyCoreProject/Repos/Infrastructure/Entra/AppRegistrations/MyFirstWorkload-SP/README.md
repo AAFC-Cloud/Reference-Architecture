@@ -4,6 +4,10 @@ This root follows the MyCoreProject-Bootstrap-SP application pattern: `azuread_a
 
 Human owners are listed in [local.app_owner_object_ids.tf](./local.app_owner_object_ids.tf). The bootstrap caller is retained as an application and service-principal owner so its existing Application.ReadWrite.OwnedBy permission can maintain the identity and its federated credential.
 
+The import block above `azuread_application_owner.bootstrap` adopts the creator ownership that Entra already assigned to the bootstrap principal on the existing application. Its ID is derived from the application and the authenticated caller; the resource continues to explicitly manage that relationship. Run this adoption through the bootstrap service connection so the caller remains MyCoreProject-Bootstrap-SP.
+
+This is an adoption step for the existing deployment, not an import-or-create operation. Terraform requires import IDs to be known during planning and fails if an imported relationship is absent. After successful adoption, the import block may be removed while retaining the owner resource. For a fresh deployment using this granular resource pattern, create the application first, then plan its owner resources: import relationships that already exist and create those that do not. An unconditional import cannot cover both cases in a single first-time apply. See the [Terraform import reference](https://developer.hashicorp.com/terraform/language/block/import).
+
 | Output | Consumer |
 | --- | --- |
 | `application_client_id` | Azure DevOps service connection credentials. |
