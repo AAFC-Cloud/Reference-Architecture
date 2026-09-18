@@ -29,6 +29,10 @@ locals {
           "  extends.parameters.pathInRepo:",
           "    Expected: ${failure.expected_directory}",
           "    Actual:   ${failure.path_in_repo}",
+        ],
+        length(failure.duplicate_parameter_names) == 0 ? [] : [
+          "  parameters:",
+          "    Duplicate parameter name(s): ${join(", ", failure.duplicate_parameter_names)}",
         ]
       ))
     ]
