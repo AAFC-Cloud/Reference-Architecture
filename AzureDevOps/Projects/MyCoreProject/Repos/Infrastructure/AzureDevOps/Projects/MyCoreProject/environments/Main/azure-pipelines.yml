@@ -1,8 +1,4 @@
 parameters:
-  - name: refreshState
-    displayName: Refresh Terraform state before planning
-    type: boolean
-    default: true
   - name: destroyPlan
     displayName: Plan for Terraform destroy
     type: boolean
