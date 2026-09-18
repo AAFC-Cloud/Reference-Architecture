@@ -11,6 +11,7 @@ parameters:
     displayName: Refresh Terraform state before planning
     type: boolean
     default: false
+
 trigger:
   branches:
     include:

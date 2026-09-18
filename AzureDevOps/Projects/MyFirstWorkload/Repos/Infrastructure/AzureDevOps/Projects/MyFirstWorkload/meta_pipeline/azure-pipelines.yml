@@ -14,7 +14,7 @@ parameters:
   - name: refreshState
     displayName: Refresh Terraform state before planning
     type: boolean
-    default: true
+    default: false
 
 trigger:
   branches:
