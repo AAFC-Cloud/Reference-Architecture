@@ -4,7 +4,6 @@ resource "azuredevops_build_definition" "main" {
   path                    = local.pipeline_paths[each.key]
   name                    = each.value.name
   queue_status            = try(each.value.enabled, true) ? "enabled" : "disabled"
-  agent_pool_name         = "Teamy-Hub-AZDO-AgentPool-1-DEV-VMSS-Pool"
   job_authorization_scope = "project"
   repository {
     repo_id     = data.azuredevops_git_repository.client_workloads.id
@@ -17,7 +16,6 @@ resource "azuredevops_build_definition" "main" {
     use_yaml = true
   }
 
-  # Queue new pipelines after their per-pipeline resource authorizations exist.
   features {
     skip_first_run = true
   }
