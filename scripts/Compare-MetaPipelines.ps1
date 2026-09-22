@@ -188,7 +188,7 @@ $expectedDriftFileNames = @(
     'data.azuredevops_git_repository.client_workloads.tf'
     'data.azuredevops_project.main.tf'
     'provider.azuredevops.tf'
-    'terraform.tf'
+    'terraform.backend.tf'
     '.tfvars.pipeline_registration'
     'azure-pipelines.yml'
     'local.repository_root.tf'
