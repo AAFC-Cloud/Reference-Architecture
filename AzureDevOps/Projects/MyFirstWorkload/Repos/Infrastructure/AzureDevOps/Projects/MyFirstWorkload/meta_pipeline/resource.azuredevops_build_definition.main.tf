@@ -17,7 +17,7 @@ resource "azuredevops_build_definition" "main" {
   }
 
   features {
-    skip_first_run = true
+    skip_first_run = false
   }
 
   depends_on = [terraform_data.pipeline_validation]
